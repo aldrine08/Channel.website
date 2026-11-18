@@ -1,208 +1,246 @@
 
-// import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-// export const runtime = "nodejs";
 
-// const allowedServices = new Set([
-//   "Recruitment & Selection",
-//   "HR Consulting",
-//   "HR Outsourcing",
-//   "Career Coaching & Mentorship",
-//   "Payroll & Accounting Support",
-//   "HR Audits & Policies",
-//   "General Enquiry",
-// ]);
 
-// function isValidEmail(email: string) {
-//   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-// }
+const allowedServices = new Set([
+  "Recruitment & Selection",
+  "HR Consulting",
+  "HR Outsourcing",
+  "Career Coaching & Mentorship",
+  "Payroll & Accounting Support",
+  "HR Audits & Policies",
+  "General Enquiry",
+]);
 
-// function escapeHtml(value: string) {
-//   return value.replace(/[&<>"']/g, (character) => {
-//     const entities: Record<string, string> = {
-//       "&": "&amp;",
-//       "<": "&lt;",
-//       ">": "&gt;",
-//       '"': "&quot;",
-//       "'": "&#39;",
-//     };
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
-//     return entities[character] ?? character;
-//   });
-// }
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
 
-// export async function POST(request: Request) {
-//   try {
-//     const contentType = request.headers.get("content-type") ?? "";
+    return entities[character] ?? character;
+  });
+}
 
-//     if (!contentType.includes("application/json")) {
-//       return NextResponse.json(
-//         { error: "Invalid request format." },
-//         { status: 415 }
-//       );
-//     }
+export async function POST(request: Request) {
+  try {
+    // Validate request content type.
+    const contentType = request.headers.get("content-type") ?? "";
 
-//     const rawBody = await request.text();
+    if (!contentType.includes("application/json")) {
+      return NextResponse.json(
+        { error: "Invalid request format." },
+        { status: 415 }
+      );
+    }
 
-//     if (rawBody.length > 12000) {
-//       return NextResponse.json(
-//         { error: "Submission is too large." },
-//         { status: 413 }
-//       );
-//     }
+    // Limit request size.
+    const rawBody = await request.text();
 
-//     let body: unknown;
+    if (rawBody.length > 12000) {
+      return NextResponse.json(
+        { error: "Submission is too large." },
+        { status: 413 }
+      );
+    }
 
-//     try {
-//       body = JSON.parse(rawBody);
-//     } catch {
-//       return NextResponse.json(
-//         { error: "Invalid form data." },
-//         { status: 400 }
-//       );
-//     }
+    // Parse incoming JSON.
+    let body: unknown;
 
-//     if (!body || typeof body !== "object" || Array.isArray(body)) {
-//       return NextResponse.json(
-//         { error: "Invalid form data." },
-//         { status: 400 }
-//       );
-//     }
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid form data." },
+        { status: 400 }
+      );
+    }
 
-//     const data = body as Record<string, unknown>;
+    if (
+      !body ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid form data." },
+        { status: 400 }
+      );
+    }
 
-//     const fields = [
-//       "name",
-//       "email",
-//       "phone",
-//       "service",
-//       "message",
-//       "website",
-//     ] as const;
+    const data = body as Record<string, unknown>;
 
-//     if (fields.some((field) =>
-//       typeof data[field] !== "string"
-//     )) {
-//       return NextResponse.json(
-//         { error: "Please provide valid form fields." },
-//         { status: 400 }
-//       );
-//     }
+    // Validate required fields.
+    const fields = [
+      "name",
+      "email",
+      "phone",
+      "service",
+      "message",
+      "website",
+    ] as const;
 
-//     const name = (data.name as string).trim();
-//     const email = (data.email as string).trim();
-//     const phone = (data.phone as string).trim();
-//     const service = (data.service as string).trim();
-//     const message = (data.message as string).trim();
-//     const website = (data.website as string).trim();
+    if (
+      fields.some((field) => typeof data[field] !== "string")
+    ) {
+      return NextResponse.json(
+        { error: "Please provide valid form fields." },
+        { status: 400 }
+      );
+    }
 
-//     // Simple bot trap. A legitimate visitor leaves this blank.
-//     if (website) {
-//       return NextResponse.json({ success: true });
-//     }
+    const name = (data.name as string).trim();
+    const email = (data.email as string).trim();
+    const phone = (data.phone as string).trim();
+    const service = (data.service as string).trim();
+    const message = (data.message as string).trim();
+    const website = (data.website as string).trim();
 
-//     if (
-//       name.length < 2 ||
-//       name.length > 120 ||
-//       email.length > 254 ||
-//       !isValidEmail(email) ||
-//       phone.length > 40 ||
-//       !allowedServices.has(service) ||
-//       message.length < 10 ||
-//       message.length > 3000
-//     ) {
-//       return NextResponse.json(
-//         {
-//           error:
-//             "Please check your details and complete all required fields.",
-//         },
-//         { status: 400 }
-//       );
-//     }
+    // Honeypot bot protection.
+    // Legitimate visitors should leave this field empty.
+    if (website) {
+      return NextResponse.json(
+        { success: true },
+        { status: 200 }
+      );
+    }
 
-//     const apiKey = process.env.RESEND_API_KEY;
-//     const fromEmail = process.env.CONTACT_FROM_EMAIL;
-//     const toEmail = process.env.CONTACT_TO_EMAIL;
+    // Validate submitted information.
+    if (
+      name.length < 2 ||
+      name.length > 120 ||
+      email.length > 254 ||
+      !isValidEmail(email) ||
+      phone.length > 40 ||
+      !allowedServices.has(service) ||
+      message.length < 10 ||
+      message.length > 3000
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Please check your details and complete all required fields.",
+        },
+        { status: 400 }
+      );
+    }
 
-//     if (!apiKey || !fromEmail || !toEmail) {
-//       console.error("Contact email configuration is incomplete.");
+    // Retrieve Resend configuration.
+    const apiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.CONTACT_FROM_EMAIL;
+    const toEmail = process.env.CONTACT_TO_EMAIL;
 
-//       return NextResponse.json(
-//         {
-//           error:
-//             "Our enquiry service is temporarily unavailable. Please try again later.",
-//         },
-//         { status: 503 }
-//       );
-//     }
+    if (!apiKey || !fromEmail || !toEmail) {
+      console.error(
+        "Contact email configuration is incomplete."
+      );
 
-//     const safeName = escapeHtml(name);
-//     const safeEmail = escapeHtml(email);
-//     const safePhone = escapeHtml(phone);
-//     const safeService = escapeHtml(service);
-//     const safeMessage = escapeHtml(message).replace(
-//       /\r?\n/g,
-//       "<br />"
-//     );
+      return NextResponse.json(
+        {
+          error:
+            "Our enquiry service is temporarily unavailable. Please try again later.",
+        },
+        { status: 503 }
+      );
+    }
 
-//     const response = await fetch("https://api.resend.com/emails", {
-//       method: "POST",
-//       headers: {
-//         Authorization: `Bearer ${apiKey}`,
-//         "Content-Type": "application/json",
-//       },
-//       body: JSON.stringify({
-//         from: fromEmail,
-//         to: [toEmail],
-//         reply_to: email,
-//         subject: `Channel Website Enquiry - ${service}`,
-//         html: `
-//           <div style="font-family:Arial,sans-serif;line-height:1.7;color:#10243A">
-//             <h2>New Channel Website Enquiry</h2>
-//             <p><strong>Name:</strong> ${safeName}</p>
-//             <p><strong>Email:</strong> ${safeEmail}</p>
-//             <p><strong>Phone:</strong> ${safePhone || "Not provided"}</p>
-//             <p><strong>Service:</strong> ${safeService}</p>
-//             <hr />
-//             <p><strong>Message:</strong></p>
-//             <p>${safeMessage}</p>
-//           </div>
-//         `,
-//       }),
-//       signal: AbortSignal.timeout(10000),
-//     });
+    // Sanitize user input before inserting it into HTML.
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safePhone = escapeHtml(phone);
+    const safeService = escapeHtml(service);
 
-//     if (!response.ok) {
-//       console.error(
-//         "Email provider rejected enquiry:",
-//         response.status
-//       );
+    const safeMessage = escapeHtml(message).replace(
+      /\r?\n/g,
+      "<br />"
+    );
 
-//       return NextResponse.json(
-//         {
-//           error:
-//             "Your enquiry could not be sent. Please try again later.",
-//         },
-//         { status: 502 }
-//       );
-//     }
+    // Send enquiry through Resend.
+    const response = await fetch(
+      "https://api.resend.com/emails",
+      {
+        method: "POST",
 
-//     return NextResponse.json(
-//       { success: true },
-//       { status: 200 }
-//     );
-//   } catch (error) {
-//     console.error(
-//       "Contact API error:",
-//       error instanceof Error ? error.message : "Unknown error"
-//     );
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
 
-//     return NextResponse.json(
-//       {
-//         error:
-//           "Something went wrong while processing your enquiry.",
-//       },
-//       { status: 500 }
-//     );
-//   }
-// }
+        body: JSON.stringify({
+          from: fromEmail,
+          to: [toEmail],
+          reply_to: email,
+          subject: `Channel Website Enquiry - ${service}`,
+
+          html: `
+            <div style="font-family:Arial,sans-serif;line-height:1.7;color:#10243A">
+              <h2>New Channel Website Enquiry</h2>
+
+              <p><strong>Name:</strong> ${safeName}</p>
+
+              <p><strong>Email:</strong> ${safeEmail}</p>
+
+              <p><strong>Phone:</strong> ${safePhone || "Not provided"}</p>
+
+              <p><strong>Service:</strong> ${safeService}</p>
+
+              <hr />
+
+              <p><strong>Message:</strong></p>
+
+              <p>${safeMessage}</p>
+            </div>
+          `,
+        }),
+
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    // Handle email provider errors.
+    if (!response.ok) {
+      console.error(
+        "Email provider rejected enquiry:",
+        response.status
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Your enquiry could not be sent. Please try again later.",
+        },
+        { status: 502 }
+      );
+    }
+
+    // Successful submission.
+    return NextResponse.json(
+      { success: true },
+      { status: 200 }
+    );
+
+  } catch (error) {
+    console.error(
+      "Contact API error:",
+      error instanceof Error
+        ? error.message
+        : "Unknown error"
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Something went wrong while processing your enquiry.",
+      },
+      { status: 500 }
+    );
+  }
+}
