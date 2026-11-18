@@ -6,6 +6,12 @@ import {
   BriefcaseBusiness,
 } from "lucide-react";
 
+async function getCurrentYear() {
+  "use cache";
+
+  return new Date().getFullYear();
+}
+
 
 const quickLinks = [
   { name: "Home", href: "/" },
@@ -24,8 +30,8 @@ const services = [
   "HR Audits & Policies",
 ];
 
-export default function Footer() {
-  const currentYear = new Date().getFullYear();
+export default async function Footer() {
+  const currentYear = await getCurrentYear();
 
   return (
     <footer className="bg-[#10243A] text-white">
